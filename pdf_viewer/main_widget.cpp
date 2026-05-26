@@ -2629,7 +2629,7 @@ void MainWidget::dropEvent(QDropEvent* event)
 }
 #endif
 
-void MainWidget::highlight_words() {
+int MainWidget::highlight_words() {
 
     int page = get_current_page_number();
     fz_stext_page* stext_page = main_document_view->get_document()->get_stext_with_page_number(page);
@@ -2652,7 +2652,9 @@ void MainWidget::highlight_words() {
 
     opengl_widget->set_highlight_words(visible_word_rects);
     opengl_widget->set_should_highlight_words(true);
+    invalidate_render();
 
+    return static_cast<int>(visible_word_rects.size());
 }
 
 std::vector<fz_rect> MainWidget::get_flat_words(std::vector<std::vector<fz_rect>>* flat_word_chars) {

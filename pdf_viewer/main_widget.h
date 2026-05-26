@@ -273,7 +273,7 @@ public:
 	void apply_window_params_for_one_window_mode(bool force_resize=false);
 	void apply_window_params_for_two_window_mode();
 	bool helper_window_overlaps_main_window();
-	void highlight_words();
+	int highlight_words();
 
 	std::vector<fz_rect> get_flat_words(std::vector<std::vector<fz_rect>>* flat_word_chars=nullptr);
 

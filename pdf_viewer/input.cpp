@@ -1170,23 +1170,49 @@ class CopyLinkCommand : public TextCommand {
 	}
 };
 
-class KeyboardSelectCommand : public TextCommand {
-
-	void perform(MainWidget* widget) {
-		widget->handle_keyboard_select(text.value());
-	}
+class KeyboardSelectCommand : public Command {
+	// Symbol-based variant: take exactly 2 * n_required_tags keystrokes
+	// (begin tag chars then end tag chars), no space, no Enter. Single-word
+	// selection: type the same tag twice (e.g. `aa` for n=1 selects word `a`).
+	// Internally delegates to handle_keyboard_select with the existing
+	// "<begin> <end>" text format.
+	std::string tag;
+	int n_required_tags = 0;
+	bool already_pre_performed = false;
 
 	void pre_perform(MainWidget* widget) {
-		widget->highlight_words();
+		if (!already_pre_performed) {
+			int visible = widget->highlight_words();
+			n_required_tags = get_num_tag_digits(visible);
+			already_pre_performed = true;
+		}
+	}
 
+	std::optional<Requirement> next_requirement(MainWidget* widget) {
+		pre_perform(widget);
+		if (static_cast<int>(tag.size()) < 2 * n_required_tags) {
+			return Requirement{ RequirementType::Symbol, "label" };
+		}
+		return {};
+	}
+
+	void set_symbol_requirement(char value) {
+		tag.push_back(value);
+	}
+
+	void perform(MainWidget* widget) {
+		if (n_required_tags > 0 && static_cast<int>(tag.size()) == 2 * n_required_tags) {
+			std::string begin = tag.substr(0, n_required_tags);
+			std::string end = tag.substr(n_required_tags);
+			std::wstring combined = utf8_decode(begin + " " + end);
+			widget->handle_keyboard_select(combined);
+		}
+		widget->opengl_widget->set_should_highlight_words(false);
+		widget->invalidate_render();
 	}
 
 	std::string get_name() {
 		return "keyboard_select";
-	}
-
-	std::string text_requirement_name() {
-		return "Labels";
 	}
 };
 
