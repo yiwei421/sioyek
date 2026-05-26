@@ -4,7 +4,14 @@ VERSION = 2.0.0
 INCLUDEPATH += ./pdf_viewer\
               mupdf/include \
               zlib
-          
+
+# Keep qmake intermediates (.o, moc_*.cpp, qrc_*.o, ui_*.h) out of the
+# project root -- by default qmake dumps them all alongside the sources.
+OBJECTS_DIR = .build/obj
+MOC_DIR     = .build/moc
+RCC_DIR     = .build/rcc
+UI_DIR      = .build/ui
+
 
 QT += core opengl gui widgets network 3dinput 
 
