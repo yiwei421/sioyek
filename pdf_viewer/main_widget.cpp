@@ -4180,8 +4180,10 @@ void MainWidget::handle_delete_highlight_pre_perform(const std::vector<int>& vis
 	}
 	opengl_widget->set_highlight_words(highlight_rects);
 	opengl_widget->set_should_highlight_words(true);
+	invalidate_render();
 }
 
 void MainWidget::clear_keyboard_select_highlights() {
 	opengl_widget->set_should_highlight_words(false);
+	invalidate_render();
 }
