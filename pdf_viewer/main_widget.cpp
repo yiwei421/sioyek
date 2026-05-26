@@ -2656,6 +2656,12 @@ int MainWidget::highlight_words() {
 
     opengl_widget->set_highlight_words(visible_word_rects);
     opengl_widget->set_should_highlight_words(true);
+    // Reset any leftover highlighted_tag_index from a previous command --
+    // set_should_highlight_words(true) doesn't clear it (only the false
+    // setter does), so a new keyboard_select would otherwise inherit the
+    // red tag from the last run.
+    opengl_widget->set_highlighted_tag_index(-1);
+    opengl_widget->update();
     invalidate_render();
 
     return visible_count;

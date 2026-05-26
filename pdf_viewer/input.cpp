@@ -1219,6 +1219,7 @@ class KeyboardSelectCommand : public Command {
 				fz_irect srect = srect_.value();
 				widget->handle_left_click({ (srect.x0 + srect.x1) / 2, (srect.y0 + srect.y1) / 2 }, true, false, false, false);
 				widget->opengl_widget->set_highlighted_tag_index(get_index_from_tag(begin_t));
+				widget->opengl_widget->update();
 				widget->invalidate_render();
 			}
 			begin_clicked = true;
