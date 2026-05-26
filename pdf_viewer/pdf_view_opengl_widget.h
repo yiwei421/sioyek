@@ -122,6 +122,7 @@ private:
 	bool is_searching;
 	bool should_highlight_links = false;
 	bool should_highlight_words = false;
+	int highlighted_tag_index = -1;
 	bool should_show_numbers = false;
 	ColorPalette color_mode = ColorPalette::Normal;
 	bool is_helper = false;
@@ -200,6 +201,7 @@ public:
 	void toggle_highlight_words();
 	void set_highlight_words(std::vector<std::pair<fz_rect, int>>& rects);
 	void set_should_highlight_words(bool should_highlight);
+	void set_highlighted_tag_index(int index);
 	std::vector<std::pair<fz_rect, int>> get_highlight_word_rects();
 
 	int get_num_search_results();

@@ -950,6 +950,11 @@ void PdfViewOpenGLWidget::render(QPainter* painter) {
 
 		std::vector<std::string> tags = get_tags(word_rects.size());
 
+		// Remember the painter's current pen so we can restore it after
+		// drawing the highlighted (red) tag.
+		QPen original_pen = painter->pen();
+		QPen red_pen(QColor::fromRgb(255, 0, 0));
+
 		for (size_t i = 0; i < word_rects.size(); i++) {
 			auto [rect, page] = word_rects[i];
 
@@ -958,7 +963,7 @@ void PdfViewOpenGLWidget::render(QPainter* painter) {
 
 			int view_width = static_cast<float>(document_view->get_view_width());
 			int view_height = static_cast<float>(document_view->get_view_height());
-			
+
 			int window_x0 = static_cast<int>(window_rect.x0 * view_width / 2 + view_width / 2);
 			int window_y0 = static_cast<int>(-window_rect.y0 * view_height / 2 + view_height / 2);
 
@@ -970,7 +975,14 @@ void PdfViewOpenGLWidget::render(QPainter* painter) {
 
 			int window_y1 = static_cast<int>(-window_rect.y1 * view_height / 2 + view_height / 2);
 
-			painter->drawText(window_x0, (window_y0 + window_y1) / 2, tags[i].c_str());
+			if (static_cast<int>(i) == highlighted_tag_index) {
+				painter->setPen(red_pen);
+				painter->drawText(window_x0, (window_y0 + window_y1) / 2, tags[i].c_str());
+				painter->setPen(original_pen);
+			}
+			else {
+				painter->drawText(window_x0, (window_y0 + window_y1) / 2, tags[i].c_str());
+			}
 		}
 	}
 
@@ -1536,6 +1548,13 @@ void PdfViewOpenGLWidget::set_highlight_words(std::vector<std::pair<fz_rect, int
 
 void PdfViewOpenGLWidget::set_should_highlight_words(bool should_highlight) {
 	this->should_highlight_words = should_highlight;
+	if (!should_highlight) {
+		highlighted_tag_index = -1;
+	}
+}
+
+void PdfViewOpenGLWidget::set_highlighted_tag_index(int index) {
+	highlighted_tag_index = index;
 }
 
 void PdfViewOpenGLWidget::rotate_clockwise() {

@@ -1207,9 +1207,10 @@ class KeyboardSelectCommand : public Command {
 		update_status_feedback(widget);
 
 		// Once the begin tag is fully entered, simulate the begin mouse-down so
-		// the user sees a cursor / partial selection on the chosen begin word.
-		// The subsequent handle_keyboard_select in perform() will redo this
-		// click harmlessly before doing the matching mouse-up at the end word.
+		// the user sees a cursor / partial selection on the chosen begin word,
+		// and recolor the matching tag red. The subsequent handle_keyboard_select
+		// in perform() will redo the begin click harmlessly before doing the
+		// matching mouse-up at the end word.
 		if (!begin_clicked && static_cast<int>(tag.size()) >= n_required_tags && n_required_tags > 0) {
 			std::string begin_t = tag.substr(0, n_required_tags);
 			std::vector<fz_irect> schar_rects;
@@ -1217,6 +1218,7 @@ class KeyboardSelectCommand : public Command {
 			if (srect_.has_value()) {
 				fz_irect srect = srect_.value();
 				widget->handle_left_click({ (srect.x0 + srect.x1) / 2, (srect.y0 + srect.y1) / 2 }, true, false, false, false);
+				widget->opengl_widget->set_highlighted_tag_index(get_index_from_tag(begin_t));
 				widget->invalidate_render();
 			}
 			begin_clicked = true;
