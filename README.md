@@ -197,26 +197,6 @@ re-embeds Qt frameworks via `macdeployqt`, kills any running sioyek, drops
 the Homebrew cask if installed, and copies the new bundle to
 `/Applications/sioyek.app`. Total: ~15–60 seconds for a small code change.
 
-#### Troubleshooting
-
-* **`mujs.h not found`** during mupdf build -- the recursive submodule
-  init didn't fully fetch mupdf's nested submodules. Re-run:
-  ```
-  git -C mupdf submodule update --init --recursive
-  ```
-* **`fatal: could not open ... pack/tmp_pack_*`** during `git clone` --
-  filesystem race on the ghq directory. Workaround: clone mupdf to
-  `/tmp` first, then move it in:
-  ```
-  rm -rf mupdf
-  git clone https://github.com/ArtifexSoftware/mupdf /tmp/mupdf-build
-  (cd /tmp/mupdf-build && git submodule update --init --recursive)
-  mv /tmp/mupdf-build mupdf
-  ```
-* **App crashes at launch with "cannot load cocoa platform plugin"** --
-  `macdeployqt` didn't run after `make`. Re-run `./build_mac.sh nodmg`
-  to re-deploy the bundle.
-
 ## Donation
 If you enjoy sioyek, please consider donating to support its development.
 
