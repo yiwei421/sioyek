@@ -1179,6 +1179,7 @@ class KeyboardSelectCommand : public Command {
 	std::string tag;
 	int n_required_tags = 0;
 	bool already_pre_performed = false;
+	bool begin_clicked = false;
 
 	void pre_perform(MainWidget* widget) {
 		if (!already_pre_performed) {
@@ -1188,8 +1189,39 @@ class KeyboardSelectCommand : public Command {
 		}
 	}
 
+	void update_status_feedback(MainWidget* widget) {
+		// Show typed prefix in the status bar so the user knows their
+		// keystrokes registered and how many remain.
+		if (n_required_tags <= 0) return;
+		std::string display = tag;
+		// pad with `_` so the user sees the full pattern length
+		int total = 2 * n_required_tags;
+		while (static_cast<int>(display.size()) < total) display.push_back('_');
+		// split with arrow for readability: "ab->c_"
+		std::string shown = display.substr(0, n_required_tags) + "->" + display.substr(n_required_tags);
+		widget->set_status_message(utf8_decode("select " + shown));
+	}
+
 	std::optional<Requirement> next_requirement(MainWidget* widget) {
 		pre_perform(widget);
+		update_status_feedback(widget);
+
+		// Once the begin tag is fully entered, simulate the begin mouse-down so
+		// the user sees a cursor / partial selection on the chosen begin word.
+		// The subsequent handle_keyboard_select in perform() will redo this
+		// click harmlessly before doing the matching mouse-up at the end word.
+		if (!begin_clicked && static_cast<int>(tag.size()) >= n_required_tags && n_required_tags > 0) {
+			std::string begin_t = tag.substr(0, n_required_tags);
+			std::vector<fz_irect> schar_rects;
+			auto srect_ = widget->get_tag_window_rect(begin_t, &schar_rects);
+			if (srect_.has_value()) {
+				fz_irect srect = srect_.value();
+				widget->handle_left_click({ (srect.x0 + srect.x1) / 2, (srect.y0 + srect.y1) / 2 }, true, false, false, false);
+				widget->invalidate_render();
+			}
+			begin_clicked = true;
+		}
+
 		if (static_cast<int>(tag.size()) < 2 * n_required_tags) {
 			return Requirement{ RequirementType::Symbol, "label" };
 		}
@@ -1207,6 +1239,7 @@ class KeyboardSelectCommand : public Command {
 			std::wstring combined = utf8_decode(begin + " " + end);
 			widget->handle_keyboard_select(combined);
 		}
+		widget->set_status_message(L"");
 		widget->opengl_widget->set_should_highlight_words(false);
 		widget->invalidate_render();
 	}
