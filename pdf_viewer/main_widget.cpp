@@ -3249,9 +3249,22 @@ void MainWidget::handle_keyboard_select(const std::wstring& text) {
                 // wider than the captured text.
                 selected_text = temp_selected_text;
 
-                if (selected_text.size() > 0 && selected_text[selected_text.size()-1] == ' ') {
-                    main_document_view->selected_character_rects.pop_back();
-                    selected_text.pop_back();
+                // Strip trailing whitespace and sentence-ending punctuation
+                // from the selection. Sioyek's word splitter often includes
+                // a trailing period / comma / semicolon as part of the word
+                // (e.g. "memory."), and word-select expansion captures the
+                // whole token. For typical "select a phrase" use cases, the
+                // user doesn't want trailing punctuation. If they explicitly
+                // do, they can use exclusive end (KEYBOARD_SELECT_INCLUSIVE 0).
+                while (selected_text.size() > 0) {
+                    wchar_t c = selected_text.back();
+                    if (c == L' ' || c == L'.' || c == L',' || c == L';' || c == L':') {
+                        main_document_view->selected_character_rects.pop_back();
+                        selected_text.pop_back();
+                    }
+                    else {
+                        break;
+                    }
                 }
             }
 
