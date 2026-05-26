@@ -1192,22 +1192,8 @@ class KeyboardSelectCommand : public Command {
 		}
 	}
 
-	void update_status_feedback(MainWidget* widget) {
-		// Show typed prefix in the status bar so the user knows their
-		// keystrokes registered and how many remain.
-		if (n_required_tags <= 0) return;
-		std::string display = tag;
-		// pad with `_` so the user sees the full pattern length
-		int total = 2 * n_required_tags;
-		while (static_cast<int>(display.size()) < total) display.push_back('_');
-		// split with arrow for readability: "ab->c_"
-		std::string shown = display.substr(0, n_required_tags) + "->" + display.substr(n_required_tags);
-		widget->set_status_message(utf8_decode("select " + shown));
-	}
-
 	std::optional<Requirement> next_requirement(MainWidget* widget) {
 		pre_perform(widget);
-		update_status_feedback(widget);
 
 		// Once the begin tag is fully entered, simulate the begin mouse-down so
 		// the user sees a cursor / partial selection on the chosen begin word,
@@ -1245,7 +1231,6 @@ class KeyboardSelectCommand : public Command {
 			std::wstring combined = utf8_decode(begin + " " + end);
 			widget->handle_keyboard_select(combined);
 		}
-		widget->set_status_message(L"");
 		widget->opengl_widget->set_should_highlight_words(false);
 		widget->invalidate_render();
 	}
