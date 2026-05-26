@@ -10,10 +10,10 @@
 #   ./build_mac.sh               # standard build, produces build/sioyek.app + DMG
 #   ./build_mac.sh portable      # portable build (configs read next to binary)
 #   ./build_mac.sh nodmg         # skip the macdeployqt -dmg step (faster iteration)
+#   ./build_mac.sh install       # like nodmg, then ./install_mac.sh to /Applications
 #
-# After a successful build, install with:
-#   pkill -x sioyek; rm -rf /Applications/sioyek.app
-#   cp -R build/sioyek.app /Applications/
+# 'install' is the typical iteration loop: edit code, run the script,
+# test the new binary in /Applications immediately.
 
 set -e
 
@@ -99,7 +99,7 @@ INFO_PLIST="resources/Info.plist"
 /usr/libexec/PlistBuddy -c "Add :LSEnvironment dict" "$INFO_PLIST" || echo "LSEnvironment already exists"
 /usr/libexec/PlistBuddy -c "Add :LSEnvironment:PATH string $CURRENT_PATH" "$INFO_PLIST" || /usr/libexec/PlistBuddy -c "Set :LSEnvironment:PATH $CURRENT_PATH" "$INFO_PLIST"
 
-if [[ $1 == nodmg ]]; then
+if [[ $1 == nodmg ]] || [[ $1 == install ]]; then
 	# Iteration mode: skip the DMG + zip (saves ~30s) -- only embed Qt
 	# frameworks and patch the binary's rpath so the bundle is runnable
 	# straight from build/sioyek.app.
@@ -107,4 +107,10 @@ if [[ $1 == nodmg ]]; then
 else
 	macdeployqt build/sioyek.app -dmg
 	zip -r sioyek-release-mac.zip build/sioyek.dmg
+fi
+
+if [[ $1 == install ]]; then
+	# Chain to ./install_mac.sh -- kill running sioyek, drop the cask if
+	# present, and copy the freshly-built bundle into /Applications.
+	./install_mac.sh
 fi
