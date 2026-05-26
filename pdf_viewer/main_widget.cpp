@@ -3194,16 +3194,32 @@ void MainWidget::handle_keyboard_select(const std::wstring& text) {
             std::optional<fz_irect> srect_ = get_tag_window_rect(parts.at(0).toStdString(), &schar_rects);
             std::optional<fz_irect> erect_ = get_tag_window_rect(parts.at(1).toStdString(), &echar_rects);
 
-            if ((!KEYBOARD_SELECT_INCLUSIVE) && (schar_rects.size() > 0) && (echar_rects.size() > 0)) {
+            if ((schar_rects.size() > 0) && (echar_rects.size() > 0)) {
+                // Precise char-rect path: use first char of begin word for the
+                // start click; for the end click, position depends on whether
+                // inclusive mode is on.
                 fz_irect srect = schar_rects[0];
-                fz_irect erect = echar_rects[0];
-                int w = erect.x1 - erect.x0;
-
-				handle_left_click({ (srect.x0 + srect.x1) / 2 - 1, (srect.y0 + srect.y1) / 2 }, true, false, false, false);
-				handle_left_click({ erect.x0 - w/2 , (erect.y0 + erect.y1) / 2 }, false, false, false, false);
-				opengl_widget->set_should_highlight_words(false);
+                handle_left_click({ (srect.x0 + srect.x1) / 2 - 1, (srect.y0 + srect.y1) / 2 }, true, false, false, false);
+                if (KEYBOARD_SELECT_INCLUSIVE) {
+                    // Click just past the LAST char of the end word so word-select
+                    // captures the full word (and only that word -- no leaking into
+                    // the next word the way erect.x1 - 5 on the word rect did,
+                    // since word rects include trailing punctuation/space).
+                    fz_irect last_echar = echar_rects[echar_rects.size() - 1];
+                    handle_left_click({ last_echar.x1 - 1, (last_echar.y0 + last_echar.y1) / 2 }, false, false, false, false);
+                }
+                else {
+                    // Exclusive: click before the FIRST char of the end word so
+                    // word-select stops just before it.
+                    fz_irect erect = echar_rects[0];
+                    int w = erect.x1 - erect.x0;
+                    handle_left_click({ erect.x0 - w/2 , (erect.y0 + erect.y1) / 2 }, false, false, false, false);
+                }
+                opengl_widget->set_should_highlight_words(false);
             }
             else if (srect_.has_value() && erect_.has_value()) {
+                // Fallback when char rects aren't available -- use word rects.
+                // Less precise but better than nothing.
                 fz_irect srect = srect_.value();
                 fz_irect erect = erect_.value();
 
