@@ -4201,14 +4201,37 @@ void MainWidget::clear_keyboard_select_highlights() {
 }
 
 bool MainWidget::try_visual_mark_at(WindowPos pos) {
-	// Strict variant of visual_mark_under_pos: only enters the mode if the
-	// position resolves to a real container line (not margin/blank/end of doc).
-	// Returns true if the mode was entered, false if nothing was done.
+	// Try the given position first; if it doesn't resolve to a real container
+	// line (margin / blank / page gap), sweep outward in y -- both directions
+	// alternately, increasing radius -- and snap to the nearest line found.
+	// Only returns false if the entire visible area has no resolvable line,
+	// in which case nothing happens (mode is not entered).
 	if (!main_document_view_has_document()) return false;
-	DocumentPos document_pos = main_document_view->window_to_document_pos(pos);
-	if (document_pos.page == -1) return false;
-	int container_line_index = main_document_view->get_line_index_of_pos(document_pos);
-	if (container_line_index == -1) return false;
-	visual_mark_under_pos(pos);
-	return true;
+
+	auto resolves_to_line = [&](WindowPos p) -> bool {
+		DocumentPos dp = main_document_view->window_to_document_pos(p);
+		if (dp.page == -1) return false;
+		return main_document_view->get_line_index_of_pos(dp) != -1;
+	};
+
+	if (resolves_to_line(pos)) {
+		visual_mark_under_pos(pos);
+		return true;
+	}
+
+	int max_delta = height() / 2;
+	for (int delta = 5; delta <= max_delta; delta += 5) {
+		// Sweep downward first (typical reading direction after scrolling)
+		WindowPos below = { pos.x, pos.y + delta };
+		if (resolves_to_line(below)) {
+			visual_mark_under_pos(below);
+			return true;
+		}
+		WindowPos above = { pos.x, pos.y - delta };
+		if (resolves_to_line(above)) {
+			visual_mark_under_pos(above);
+			return true;
+		}
+	}
+	return false;
 }

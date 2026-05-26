@@ -1984,14 +1984,14 @@ class EnterVisualMarkModeCommand : public Command {
 };
 
 class EnterVisualMarkModeLineCommand : public Command {
-	// Stricter variant of enter_visual_mark_mode: tries the top of the
-	// visible area (where readers usually focus after scrolling) and only
-	// enters the mode if a real container line exists there. If the top
-	// is page margin / blank space / past end of doc, do nothing rather
-	// than entering with a screen-center fallback.
+	// Stricter variant of enter_visual_mark_mode: starts from screen center
+	// and sweeps outward to find the nearest real container line. If no
+	// resolvable line exists anywhere in the visible area (e.g. an empty
+	// page or past end of doc), do nothing rather than entering with a
+	// floating-in-margin fallback.
 
 	void perform(MainWidget* widget) {
-		widget->try_visual_mark_at({ widget->width() / 2, 20 });
+		widget->try_visual_mark_at({ widget->width() / 2, widget->height() / 2 });
 	}
 
 	std::string get_name() {
