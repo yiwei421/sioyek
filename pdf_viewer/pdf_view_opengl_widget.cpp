@@ -974,13 +974,16 @@ void PdfViewOpenGLWidget::render(QPainter* painter) {
 			int baseline_y = (window_y0 + window_y1) / 2;
 
 			if (static_cast<int>(i) == highlighted_tag_index) {
-				// Fill a red rect behind the tag text, then draw the text
-				// (default color) on top. The QFontMetrics boundingRect is
-				// origin-relative; translate it to the draw position so it
-				// covers the tag glyphs.
+				// Fill a red rect that fully encloses the glyph cell, then
+				// draw the text on top in the default color. Use font-metrics
+				// height + horizontalAdvance with generous padding so the
+				// red box fully covers the previous default-color tag.
 				QString tag_str = QString::fromStdString(tags[i]);
-				QRect text_rect = painter->fontMetrics().boundingRect(tag_str);
-				QRect bg_rect = text_rect.translated(window_x0, baseline_y).adjusted(-2, -1, 2, 1);
+				QFontMetrics fm = painter->fontMetrics();
+				int text_w = fm.horizontalAdvance(tag_str);
+				int ascent = fm.ascent();
+				int height = fm.height();
+				QRect bg_rect(window_x0 - 3, baseline_y - ascent - 2, text_w + 6, height + 4);
 				painter->fillRect(bg_rect, red_bg);
 			}
 			painter->drawText(window_x0, baseline_y, tags[i].c_str());
