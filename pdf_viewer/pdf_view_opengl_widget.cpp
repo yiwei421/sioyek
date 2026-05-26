@@ -254,7 +254,13 @@ void PdfViewOpenGLWidget::resizeGL(int w, int h) {
 void PdfViewOpenGLWidget::render_line_window(GLuint program, float gl_vertical_pos, std::optional<fz_rect> ruler_rect) {
 
 
-	float bar_height = 4.0f;
+	// Upstream uses bar_height = 4.0f, but the coords here are NDC (range
+	// [-1, 1] across the screen). 4.0 covers 200% of view-height, so the
+	// "bar" extends from the mark line all the way past the bottom of the
+	// screen -- effectively a "tint everything below" overlay. Compute a
+	// ~4-pixel NDC height instead so it's an actual thin line indicator.
+	float view_h = static_cast<float>(document_view->get_view_height());
+	float bar_height = (view_h > 0.0f) ? (8.0f / view_h) : 0.01f;
 
 	float bar_data[] = {
 		-1, gl_vertical_pos,
