@@ -615,10 +615,55 @@ class DeleteBookmarkCommand : public Command {
 };
 
 class DeleteHighlightCommand : public Command {
+	// Backport of upstream 40238e75: overlay 1-letter tags on visible
+	// highlights, type the tag, delete the picked one. Adapted to the alpha
+	// tag's Command pattern (perform/pre_perform take widget as arg) and the
+	// alpha tag's set_highlight_words signature (vector<pair<fz_rect, int>>).
+	std::vector<int> visible_highlight_indices;
+	std::string tag;
+	int n_required_tags = 0;
+	bool already_pre_performed = false;
+
+	void pre_perform(MainWidget* widget) {
+		if (!already_pre_performed) {
+			if (widget->selected_highlight_index == -1) {
+				visible_highlight_indices = widget->main_document_view->get_visible_highlight_indices();
+				n_required_tags = get_num_tag_digits(visible_highlight_indices.size());
+				widget->handle_delete_highlight_pre_perform(visible_highlight_indices);
+			}
+			already_pre_performed = true;
+		}
+	}
+
+	std::optional<Requirement> next_requirement(MainWidget* widget) {
+		// pre_perform must run to know how many tag digits we need; calling
+		// it here is safe due to the already_pre_performed guard.
+		pre_perform(widget);
+		if (widget->selected_highlight_index == -1 && static_cast<int>(tag.size()) < n_required_tags) {
+			return Requirement{ RequirementType::Symbol, "tag" };
+		}
+		return {};
+	}
+
+	void set_symbol_requirement(char value) {
+		tag.push_back(value);
+	}
+
 	void perform(MainWidget* widget) {
+		bool should_clear_labels = false;
+		if (tag.size() > 0) {
+			int index = get_index_from_tag(tag);
+			if (index < static_cast<int>(visible_highlight_indices.size())) {
+				widget->selected_highlight_index = visible_highlight_indices[index];
+			}
+			should_clear_labels = true;
+		}
 		if (widget->selected_highlight_index != -1) {
 			widget->main_document_view->delete_highlight_with_index(widget->selected_highlight_index);
 			widget->selected_highlight_index = -1;
+		}
+		if (should_clear_labels) {
+			widget->clear_keyboard_select_highlights();
 		}
 		widget->validate_render();
 	}

@@ -4162,3 +4162,26 @@ int MainWidget::num_visible_links() {
     main_document_view->get_visible_links(visible_page_links);
     return visible_page_links.size();
 }
+
+void MainWidget::handle_delete_highlight_pre_perform(const std::vector<int>& visible_highlight_indices) {
+	// Overlay tags on visible highlights using the same word-tag pipeline as
+	// keyboard_smart_jump. The opengl widget's set_highlight_words expects
+	// page-relative rects paired with the page number, so convert each
+	// highlight's first (absolute) rect via Document::absolute_to_page_rect.
+	const std::vector<Highlight>& highlights = doc()->get_highlights();
+	std::vector<std::pair<fz_rect, int>> highlight_rects;
+	for (auto ind : visible_highlight_indices) {
+		const Highlight& h = highlights[ind];
+		if (h.highlight_rects.size() > 0) {
+			int page = 0;
+			fz_rect page_rect = doc()->absolute_to_page_rect(h.highlight_rects[0], &page);
+			highlight_rects.push_back(std::make_pair(page_rect, page));
+		}
+	}
+	opengl_widget->set_highlight_words(highlight_rects);
+	opengl_widget->set_should_highlight_words(true);
+}
+
+void MainWidget::clear_keyboard_select_highlights() {
+	opengl_widget->set_should_highlight_words(false);
+}

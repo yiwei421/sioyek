@@ -1230,3 +1230,23 @@ void DocumentView::get_visible_links(std::vector<std::pair<int, fz_link*>>& visi
 std::vector<fz_rect>* DocumentView::get_selected_character_rects() {
 	return &this->selected_character_rects;
 }
+
+std::vector<int> DocumentView::get_visible_highlight_indices() {
+	// Indices into get_document()->get_highlights() of highlights whose
+	// vertical span overlaps the current viewport. Used by keyboard
+	// delete_highlight to overlay tags on what's actually visible.
+	const std::vector<Highlight>& highlights = get_document()->get_highlights();
+	std::vector<int> res;
+
+	for (size_t i = 0; i < highlights.size(); i++) {
+		float bx, by, ex, ey;
+		absolute_to_window_pos(highlights[i].selection_begin.x, highlights[i].selection_begin.y, &bx, &by);
+		absolute_to_window_pos(highlights[i].selection_end.x, highlights[i].selection_end.y, &ex, &ey);
+		if (by > ey) std::swap(by, ey);
+		if (range_intersects(by, ey, -1.0f, 1.0f)) {
+			res.push_back(static_cast<int>(i));
+		}
+	}
+
+	return res;
+}

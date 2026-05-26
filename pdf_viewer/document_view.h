@@ -178,4 +178,6 @@ public:
 	void get_visible_links(std::vector<std::pair<int, fz_link*>>& visible_page_links);
 
 	std::vector<fz_rect>* get_selected_character_rects();
+
+	std::vector<int> get_visible_highlight_indices();
 };

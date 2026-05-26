@@ -337,6 +337,9 @@ public:
 
 	int num_visible_links();
 
+	void handle_delete_highlight_pre_perform(const std::vector<int>& visible_highlight_indices);
+	void clear_keyboard_select_highlights();
+
 	protected:
 	void focusInEvent(QFocusEvent* ev);
 	void resizeEvent(QResizeEvent* resize_event) override;
