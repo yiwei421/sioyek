@@ -1006,14 +1006,17 @@ void PdfViewOpenGLWidget::render(QPainter* painter) {
 
 			bool should_draw = true;
 
-			// some malformed doucments have multiple overlapping links which makes reading
-			// the link labels difficult. Here we only draw the link text if there are no
-			// other close links. This has quadratic runtime but it should not matter since
-			// there are not many links in a single PDF page.
+			// Some malformed documents have multiple overlapping links which
+			// makes reading the link labels difficult; suppress the label when
+			// a *truly overlapping* later link exists. The upstream threshold
+			// was 10 doc units, which dropped tags for normal densely-packed
+			// citation groups like '[4, 27, 28, 22]' (the leading [4] sat
+			// ~10 units from [27] and got hidden). Reduce to 2 so only links
+			// that essentially share a position are suppressed.
 			for (int j = i+1; j < all_visible_links.size(); j++) {
 				auto [other_page, other_link] = all_visible_links[j];
 				float distance = std::abs(other_link->rect.x0 - link->rect.x0) + std::abs(other_link->rect.y0 - link->rect.y0);
-				if (distance < 10) {
+				if (distance < 2) {
 					should_draw = false;
 				}
 			}
