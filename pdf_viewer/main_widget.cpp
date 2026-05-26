@@ -60,6 +60,7 @@ extern bool SHOULD_USE_MULTIPLE_MONITORS;
 extern bool SORT_BOOKMARKS_BY_LOCATION;
 extern bool FLAT_TABLE_OF_CONTENTS;
 extern bool KEYBOARD_SELECT_INCLUSIVE;
+extern bool EXACT_HIGHLIGHT_SELECT;
 extern bool HOVER_OVERVIEW;
 extern bool WHEEL_ZOOM_ON_CURSOR;
 extern float MOVE_SCREEN_PERCENTAGE;
@@ -3196,6 +3197,20 @@ void MainWidget::handle_keyboard_select(const std::wstring& text) {
 				handle_left_click({ srect.x0 + 5, (srect.y0 + srect.y1) / 2 }, true, false, false, false);
 				handle_left_click({ erect.x1 - 5 , (erect.y0 + erect.y1) / 2 }, false, false, false, false);
 				opengl_widget->set_should_highlight_words(false);
+            }
+
+            if (KEYBOARD_SELECT_INCLUSIVE) { // don't include the final space
+                std::wstring temp_selected_text;
+                main_document_view->get_text_selection(selection_begin,
+                    selection_end,
+                    !EXACT_HIGHLIGHT_SELECT,
+                    main_document_view->selected_character_rects,
+                    temp_selected_text);
+
+                if (temp_selected_text.size() > 0 && temp_selected_text[temp_selected_text.size()-1] == ' ') {
+                    main_document_view->selected_character_rects.pop_back();
+                    selected_text.pop_back();
+                }
             }
 
 		}
