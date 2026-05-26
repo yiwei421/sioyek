@@ -179,20 +179,14 @@ public:
 
 	bool eventFilter(QObject* obj, QEvent* event) override {
 		if (obj == line_edit) {
-			// Delete-from-list: catch Delete (and macOS Backspace) on the line_edit.
-			// Upstream guards this with #ifdef SIOYEK_QT6 because Qt5 also has a
-			// keyReleaseEvent override on the widget itself -- but that only fires
-			// when the widget has focus, not when its line_edit child has focus,
-			// which is the normal state. Without this, keyboard delete in
-			// goto_highlight et al. silently no-ops on Qt5 builds. Only fire when
-			// the filter line is empty so we don't steal Backspace from the normal
-			// "erase a filter character" use.
+#ifdef SIOYEK_QT6
 			if (event->type() == QEvent::KeyRelease) {
 				QKeyEvent* key_event = static_cast<QKeyEvent*>(event);
-				if (should_trigger_delete(key_event) && line_edit->text().isEmpty()) {
+				if (should_trigger_delete(key_event)) {
 					handle_delete();
 				}
 			}
+#endif
 			if (event->type() == QEvent::KeyPress) {
 				QKeyEvent* key_event = static_cast<QKeyEvent*>(event);
 				bool is_control_pressed = key_event->modifiers().testFlag(Qt::ControlModifier) || key_event->modifiers().testFlag(Qt::MetaModifier);
