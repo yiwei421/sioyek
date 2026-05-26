@@ -1,18 +1,73 @@
 #!/usr/bin/env bash
+# Build sioyek.app on macOS. Works from a fresh clone -- handles submodule
+# init, freeglut bypass, qt@5 PATH wiring, mupdf build, sioyek build, and
+# macdeployqt bundling.
+#
+# Required deps (install once):
+#   brew install qt@5 freeglut mesa harfbuzz
+#
+# Usage:
+#   ./build_mac.sh               # standard build, produces build/sioyek.app + DMG
+#   ./build_mac.sh portable      # portable build (configs read next to binary)
+#   ./build_mac.sh nodmg         # skip the macdeployqt -dmg step (faster iteration)
+#
+# After a successful build, install with:
+#   pkill -x sioyek; rm -rf /Applications/sioyek.app
+#   cp -R build/sioyek.app /Applications/
+
 set -e
-# prerequisite: brew install qt@5 freeglut mesa harfbuzz
+
+# --- Bootstrap: ensure deps + submodules + freeglut bypass -------------------
+
+# 1. Brew deps. Warn (don't fail) if missing -- user might have them via a
+# different package manager. qt@5 is the hard requirement; the script will
+# fail later on qmake if it's actually missing.
+for pkg in qt@5 freeglut mesa harfbuzz; do
+    if ! brew list "$pkg" &>/dev/null; then
+        echo "warning: brew package '$pkg' not installed (brew install $pkg)"
+    fi
+done
+
+# 2. Put qt@5 binaries on PATH so qmake / macdeployqt resolve.
+QT5_PREFIX=$(brew --prefix qt@5 2>/dev/null || true)
+if [ -n "$QT5_PREFIX" ] && [ -x "$QT5_PREFIX/bin/qmake" ]; then
+    export PATH="$QT5_PREFIX/bin:$PATH"
+fi
+
+# 3. mupdf nested submodules. `git clone --recursive` doesn't always recurse
+# into mupdf's own submodules (mujs, extract, etc.) reliably; force init if
+# any required file is missing.
+if [ ! -f mupdf/thirdparty/mujs/mujs.h ] || [ ! -f mupdf/thirdparty/extract/include/extract/extract.h ]; then
+    echo "Initializing mupdf nested submodules..."
+    git -C mupdf submodule update --init --recursive || true
+fi
+
+# 4. Deinit freeglut. mupdf's Makethird hardcodes libmupdf-glut.a which depends
+# on freeglut sources that fail to compile on macOS (X11 headers missing).
+# HAVE_GLUT=no doesn't actually skip the target. Removing the submodule's
+# source tree makes the make dependency unresolvable in a way that mupdf
+# tolerates -- no glut output, but mupdf itself builds fine.
+if [ -d mupdf/thirdparty/freeglut/src ]; then
+    echo "Deiniting freeglut submodule (X11 headers don't exist on macOS)..."
+    git -C mupdf submodule deinit -f thirdparty/freeglut 2>/dev/null || true
+fi
+
+# -----------------------------------------------------------------------------
 
 #sys_glut_clfags=`pkg-config --cflags glut gl`
 #sys_glut_libs=`pkg-config --libs glut gl`
 #sys_harfbuzz_clfags=`pkg-config --cflags harfbuzz`
 #sys_harfbuzz_libs=`pkg-config --libs harfbuzz`
 
-if [ -z ${MAKE_PARALLEL+x} ]; then export MAKE_PARALLEL=1; else echo "MAKE_PARALLEL defined"; fi
+if [ -z ${MAKE_PARALLEL+x} ]; then export MAKE_PARALLEL=$(sysctl -n hw.ncpu 2>/dev/null || echo 1); else echo "MAKE_PARALLEL defined"; fi
 echo "MAKE_PARALLEL set to $MAKE_PARALLEL"
 
 cd mupdf
 #make USE_SYSTEM_HARFBUZZ=yes USE_SYSTEM_GLUT=yes SYS_GLUT_CFLAGS="${sys_glut_clfags}" SYS_GLUT_LIBS="${sys_glut_libs}" SYS_HARFBUZZ_CFLAGS="${sys_harfbuzz_clfags}" SYS_HARFBUZZ_LIBS="${sys_harfbuzz_libs}" -j 4
-make
+# Build only the libs sioyek links against (libmupdf + thirdparty libs +
+# threads helper). The default 'all' target includes libmupdf-glut.a which
+# pulls in freeglut sources we deinitialized above. 'libs' skips it.
+make -j$MAKE_PARALLEL libs libmupdf-threads
 cd ..
 
 if [[ $1 == portable ]]; then
@@ -44,5 +99,12 @@ INFO_PLIST="resources/Info.plist"
 /usr/libexec/PlistBuddy -c "Add :LSEnvironment dict" "$INFO_PLIST" || echo "LSEnvironment already exists"
 /usr/libexec/PlistBuddy -c "Add :LSEnvironment:PATH string $CURRENT_PATH" "$INFO_PLIST" || /usr/libexec/PlistBuddy -c "Set :LSEnvironment:PATH $CURRENT_PATH" "$INFO_PLIST"
 
-macdeployqt build/sioyek.app -dmg
-zip -r sioyek-release-mac.zip build/sioyek.dmg
+if [[ $1 == nodmg ]]; then
+	# Iteration mode: skip the DMG + zip (saves ~30s) -- only embed Qt
+	# frameworks and patch the binary's rpath so the bundle is runnable
+	# straight from build/sioyek.app.
+	macdeployqt build/sioyek.app
+else
+	macdeployqt build/sioyek.app -dmg
+	zip -r sioyek-release-mac.zip build/sioyek.dmg
+fi
