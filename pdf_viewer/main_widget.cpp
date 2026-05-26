@@ -59,6 +59,7 @@
 extern bool SHOULD_USE_MULTIPLE_MONITORS;
 extern bool SORT_BOOKMARKS_BY_LOCATION;
 extern bool FLAT_TABLE_OF_CONTENTS;
+extern bool KEYBOARD_SELECT_INCLUSIVE;
 extern bool HOVER_OVERVIEW;
 extern bool WHEEL_ZOOM_ON_CURSOR;
 extern float MOVE_SCREEN_PERCENTAGE;
@@ -3179,7 +3180,7 @@ void MainWidget::handle_keyboard_select(const std::wstring& text) {
             std::optional<fz_irect> srect_ = get_tag_window_rect(parts.at(0).toStdString(), &schar_rects);
             std::optional<fz_irect> erect_ = get_tag_window_rect(parts.at(1).toStdString(), &echar_rects);
 
-            if ((schar_rects.size() > 0) && (echar_rects.size() > 0)) {
+            if ((!KEYBOARD_SELECT_INCLUSIVE) && (schar_rects.size() > 0) && (echar_rects.size() > 0)) {
                 fz_irect srect = schar_rects[0];
                 fz_irect erect = echar_rects[0];
                 int w = erect.x1 - erect.x0;
@@ -3193,7 +3194,7 @@ void MainWidget::handle_keyboard_select(const std::wstring& text) {
                 fz_irect erect = erect_.value();
 
 				handle_left_click({ srect.x0 + 5, (srect.y0 + srect.y1) / 2 }, true, false, false, false);
-				handle_left_click({ erect.x0 - 5 , (erect.y0 + erect.y1) / 2 }, false, false, false, false);
+				handle_left_click({ erect.x1 - 5 , (erect.y0 + erect.y1) / 2 }, false, false, false, false);
 				opengl_widget->set_should_highlight_words(false);
             }
 

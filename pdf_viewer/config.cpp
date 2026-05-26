@@ -15,6 +15,7 @@ extern float DARK_MODE_BACKGROUND_COLOR[3];
 extern float CUSTOM_COLOR_MODE_EMPTY_BACKGROUND_COLOR[3];
 extern float DARK_MODE_CONTRAST;
 extern bool FLAT_TABLE_OF_CONTENTS;
+extern bool KEYBOARD_SELECT_INCLUSIVE;
 extern bool SMALL_TOC;
 extern bool SHOULD_USE_MULTIPLE_MONITORS;
 extern bool SORT_BOOKMARKS_BY_LOCATION;
@@ -343,6 +344,7 @@ ConfigManager::ConfigManager(const Path& default_path, const Path& auto_path ,co
 	configs.push_back({ L"move_screen_percentage", &MOVE_SCREEN_PERCENTAGE, float_serializer, float_deserializer, nullptr });
 	configs.push_back({ L"move_screen_ratio", &MOVE_SCREEN_PERCENTAGE, float_serializer, float_deserializer, nullptr });
 	configs.push_back({ L"flat_toc", &FLAT_TABLE_OF_CONTENTS, bool_serializer, bool_deserializer, bool_validator });
+	configs.push_back({ L"keyboard_select_inclusive", &KEYBOARD_SELECT_INCLUSIVE, bool_serializer, bool_deserializer, bool_validator });
 	configs.push_back({ L"should_use_multiple_monitors", &SHOULD_USE_MULTIPLE_MONITORS, bool_serializer, bool_deserializer, bool_validator });
 	configs.push_back({ L"should_load_tutorial_when_no_other_file", &SHOULD_LOAD_TUTORIAL_WHEN_NO_OTHER_FILE, bool_serializer, bool_deserializer, bool_validator });
 	configs.push_back({ L"should_launch_new_instance", &SHOULD_LAUNCH_NEW_INSTANCE, bool_serializer, bool_deserializer, bool_validator });
