@@ -950,10 +950,7 @@ void PdfViewOpenGLWidget::render(QPainter* painter) {
 
 		std::vector<std::string> tags = get_tags(word_rects.size());
 
-		// Remember the painter's current pen so we can restore it after
-		// drawing the highlighted (red) tag.
-		QPen original_pen = painter->pen();
-		QPen red_pen(QColor::fromRgb(255, 0, 0));
+		QColor red_bg = QColor::fromRgb(255, 0, 0);
 
 		for (size_t i = 0; i < word_rects.size(); i++) {
 			auto [rect, page] = word_rects[i];
@@ -974,15 +971,19 @@ void PdfViewOpenGLWidget::render(QPainter* painter) {
 			}
 
 			int window_y1 = static_cast<int>(-window_rect.y1 * view_height / 2 + view_height / 2);
+			int baseline_y = (window_y0 + window_y1) / 2;
 
 			if (static_cast<int>(i) == highlighted_tag_index) {
-				painter->setPen(red_pen);
-				painter->drawText(window_x0, (window_y0 + window_y1) / 2, tags[i].c_str());
-				painter->setPen(original_pen);
+				// Fill a red rect behind the tag text, then draw the text
+				// (default color) on top. The QFontMetrics boundingRect is
+				// origin-relative; translate it to the draw position so it
+				// covers the tag glyphs.
+				QString tag_str = QString::fromStdString(tags[i]);
+				QRect text_rect = painter->fontMetrics().boundingRect(tag_str);
+				QRect bg_rect = text_rect.translated(window_x0, baseline_y).adjusted(-2, -1, 2, 1);
+				painter->fillRect(bg_rect, red_bg);
 			}
-			else {
-				painter->drawText(window_x0, (window_y0 + window_y1) / 2, tags[i].c_str());
-			}
+			painter->drawText(window_x0, baseline_y, tags[i].c_str());
 		}
 	}
 
