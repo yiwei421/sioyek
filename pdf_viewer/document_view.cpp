@@ -1219,7 +1219,15 @@ void DocumentView::get_visible_links(std::vector<std::pair<int, fz_link*>>& visi
 		while (link) {
             ParsedUri parsed_uri = parse_uri(mupdf_context, get_document() ? get_document()->doc : nullptr, link->uri);
             fz_rect window_rect = document_to_window_rect(page, link->rect);
-            if ((window_rect.x0 >= -1) && (window_rect.x0 <= 1) && (window_rect.y0 >= -1) && (window_rect.y0 <= 1)) {
+            // Upstream checked only the top-left corner against [-1, 1]
+            // (NDC viewport), which excluded links whose top-left was a
+            // hair outside the viewport even though the body was visible.
+            // Use a proper rect-overlap test so the first citation in a
+            // group like "[4, 27, 28, 22]" gets a tag instead of being
+            // dropped by the corner-only check.
+            bool x_overlap = (window_rect.x1 >= -1.0f) && (window_rect.x0 <= 1.0f);
+            bool y_overlap = (window_rect.y1 >= -1.0f) && (window_rect.y0 <= 1.0f);
+            if (x_overlap && y_overlap) {
                 visible_page_links.push_back(std::make_pair(page, link));
             }
 			link = link->next;
