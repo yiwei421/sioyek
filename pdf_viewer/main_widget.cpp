@@ -2650,11 +2650,15 @@ int MainWidget::highlight_words() {
 		}
     }
 
+    // Capture size BEFORE set_highlight_words -- it std::moves from the
+    // vector, so visible_word_rects.size() would be 0 after.
+    int visible_count = static_cast<int>(visible_word_rects.size());
+
     opengl_widget->set_highlight_words(visible_word_rects);
     opengl_widget->set_should_highlight_words(true);
     invalidate_render();
 
-    return static_cast<int>(visible_word_rects.size());
+    return visible_count;
 }
 
 std::vector<fz_rect> MainWidget::get_flat_words(std::vector<std::vector<fz_rect>>* flat_word_chars) {
