@@ -1079,27 +1079,38 @@ class EscapeCommand : public Command {
 class OpenLinkCommand : public Command {
 protected:
 	std::optional<std::wstring> text = {};
+	int n_required_tags = -1; // -1 = not computed yet
 public:
-	
+
 	virtual std::string text_requirement_name() {
 		return "Label";
 	}
 
 	virtual std::optional<Requirement> next_requirement(MainWidget* widget) {
-		if (text.has_value()) {
+		// Text-input path (numeric tags + 10+ visible links): user types
+		// the digit string in the text bar, Enter commits.
+		// Symbol-input path (everything else): each keystroke is consumed
+		// immediately. For dense alphabetic pages (>=27 links) we collect
+		// n_required_tags chars before firing -- no Enter needed.
+
+		if (!ALPHABETIC_LINK_TAGS) {
+			if (widget->num_visible_links() < 10) {
+				if (text.has_value()) return {};
+				return Requirement{ RequirementType::Symbol, "Label" };
+			}
+			if (text.has_value()) return {};
+			return Requirement{ RequirementType::Text, text_requirement_name() };
+		}
+
+		if (n_required_tags < 0) {
+			n_required_tags = get_num_tag_digits(widget->num_visible_links());
+			if (n_required_tags < 1) n_required_tags = 1;
+		}
+		int current = text.has_value() ? static_cast<int>(text->size()) : 0;
+		if (current >= n_required_tags) {
 			return {};
 		}
-		else {
-			if ((widget->num_visible_links() < 26) && ALPHABETIC_LINK_TAGS) {
-				return Requirement{ RequirementType::Symbol, "Label"};
-			}
-			else if ((widget->num_visible_links() < 10) && (!ALPHABETIC_LINK_TAGS)) {
-				return Requirement{ RequirementType::Symbol, "Label"};
-			}
-			else {
-				return Requirement{ RequirementType::Text, text_requirement_name() };
-			}
-		}
+		return Requirement{ RequirementType::Symbol, "Label" };
 	}
 
 	virtual void perform(MainWidget* widget) {
@@ -1120,9 +1131,10 @@ public:
 	}
 
 	virtual void set_symbol_requirement(char value){
-		std::wstring val;
-		val.push_back(value);
-		this->text = val;
+		if (!text.has_value()) {
+			text = std::wstring();
+		}
+		text->push_back(value);
 	}
 };
 
@@ -1150,23 +1162,14 @@ class PortalToLinkCommand : public OpenLinkCommand {
 
 };
 
-class CopyLinkCommand : public TextCommand {
+class CopyLinkCommand : public OpenLinkCommand {
 
 	void perform(MainWidget* widget) {
 		widget->handle_open_link(text.value(), true);
 	}
 
-	void pre_perform(MainWidget* widget) {
-		widget->opengl_widget->set_highlight_links(true, true);
-
-	}
-
 	std::string get_name() {
 		return "copy_link";
-	}
-
-	std::string text_requirement_name() {
-		return "Label";
 	}
 };
 
