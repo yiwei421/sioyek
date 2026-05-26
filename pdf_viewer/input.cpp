@@ -1195,22 +1195,17 @@ class KeyboardSelectCommand : public Command {
 	std::optional<Requirement> next_requirement(MainWidget* widget) {
 		pre_perform(widget);
 
-		// Once the begin tag is fully entered, simulate the begin mouse-down so
-		// the user sees a cursor / partial selection on the chosen begin word,
-		// and recolor the matching tag red. The subsequent handle_keyboard_select
-		// in perform() will redo the begin click harmlessly before doing the
-		// matching mouse-up at the end word.
+		// Once the begin tag is fully entered, recolor the matching tag red
+		// so the user can confirm their begin pick before committing to the
+		// end tag. We deliberately skip the mouse-down trick that an earlier
+		// version did -- it interacted badly with handle_keyboard_select's
+		// own click pair and produced over-wide selections for same-tag-twice
+		// single-word picks (begin == end).
 		if (!begin_clicked && static_cast<int>(tag.size()) >= n_required_tags && n_required_tags > 0) {
 			std::string begin_t = tag.substr(0, n_required_tags);
-			std::vector<fz_irect> schar_rects;
-			auto srect_ = widget->get_tag_window_rect(begin_t, &schar_rects);
-			if (srect_.has_value()) {
-				fz_irect srect = srect_.value();
-				widget->handle_left_click({ (srect.x0 + srect.x1) / 2, (srect.y0 + srect.y1) / 2 }, true, false, false, false);
-				widget->opengl_widget->set_highlighted_tag_index(get_index_from_tag(begin_t));
-				widget->opengl_widget->update();
-				widget->invalidate_render();
-			}
+			widget->opengl_widget->set_highlighted_tag_index(get_index_from_tag(begin_t));
+			widget->opengl_widget->update();
+			widget->invalidate_render();
 			begin_clicked = true;
 		}
 
