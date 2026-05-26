@@ -339,6 +339,7 @@ public:
 
 	void handle_delete_highlight_pre_perform(const std::vector<int>& visible_highlight_indices);
 	void clear_keyboard_select_highlights();
+	bool try_visual_mark_at(WindowPos pos);
 
 	protected:
 	void focusInEvent(QFocusEvent* ev);

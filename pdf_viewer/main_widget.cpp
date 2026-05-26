@@ -4199,3 +4199,16 @@ void MainWidget::clear_keyboard_select_highlights() {
 	opengl_widget->set_should_highlight_words(false);
 	invalidate_render();
 }
+
+bool MainWidget::try_visual_mark_at(WindowPos pos) {
+	// Strict variant of visual_mark_under_pos: only enters the mode if the
+	// position resolves to a real container line (not margin/blank/end of doc).
+	// Returns true if the mode was entered, false if nothing was done.
+	if (!main_document_view_has_document()) return false;
+	DocumentPos document_pos = main_document_view->window_to_document_pos(pos);
+	if (document_pos.page == -1) return false;
+	int container_line_index = main_document_view->get_line_index_of_pos(document_pos);
+	if (container_line_index == -1) return false;
+	visual_mark_under_pos(pos);
+	return true;
+}

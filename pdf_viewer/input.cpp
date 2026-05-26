@@ -1983,6 +1983,22 @@ class EnterVisualMarkModeCommand : public Command {
 	}
 };
 
+class EnterVisualMarkModeLineCommand : public Command {
+	// Stricter variant of enter_visual_mark_mode: tries the top of the
+	// visible area (where readers usually focus after scrolling) and only
+	// enters the mode if a real container line exists there. If the top
+	// is page margin / blank space / past end of doc, do nothing rather
+	// than entering with a screen-center fallback.
+
+	void perform(MainWidget* widget) {
+		widget->try_visual_mark_at({ widget->width() / 2, 20 });
+	}
+
+	std::string get_name() {
+		return "enter_visual_mark_mode_line";
+	}
+};
+
 class SetPageOffsetCommand : public TextCommand {
 
 	void perform(MainWidget* widget) {
@@ -2418,6 +2434,7 @@ CommandManager::CommandManager(ConfigManager* config_manager) {
 	new_commands["import"] = []() {return std::make_unique< ImportCommand>(); };
 	new_commands["export"] = []() {return std::make_unique< ExportCommand>(); };
 	new_commands["enter_visual_mark_mode"] = []() {return std::make_unique< EnterVisualMarkModeCommand>(); };
+	new_commands["enter_visual_mark_mode_line"] = []() {return std::make_unique< EnterVisualMarkModeLineCommand>(); };
 	new_commands["set_page_offset"] = []() {return std::make_unique< SetPageOffsetCommand>(); };
 	new_commands["toggle_visual_scroll"] = []() {return std::make_unique< ToggleVisualScrollCommand>(); };
 	new_commands["toggle_horizontal_scroll_lock"] = []() {return std::make_unique< ToggleHorizontalLockCommand>(); };
