@@ -3201,12 +3201,17 @@ void MainWidget::handle_keyboard_select(const std::wstring& text) {
                 fz_irect srect = schar_rects[0];
                 handle_left_click({ (srect.x0 + srect.x1) / 2 - 1, (srect.y0 + srect.y1) / 2 }, true, false, false, false);
                 if (KEYBOARD_SELECT_INCLUSIVE) {
-                    // Click just past the LAST char of the end word so word-select
-                    // captures the full word (and only that word -- no leaking into
-                    // the next word the way erect.x1 - 5 on the word rect did,
-                    // since word rects include trailing punctuation/space).
+                    // Click at the CENTER of the last char of the end word.
+                    // Edge-of-rect (x1) sometimes lands in trailing punctuation
+                    // (e.g. when the word splitter treats "memory." as one
+                    // token whose last char is the period) and word-select then
+                    // extends past it into the next word. Center is safely
+                    // inside the visible last glyph; word-select expands left
+                    // to cover the rest of the word.
                     fz_irect last_echar = echar_rects[echar_rects.size() - 1];
-                    handle_left_click({ last_echar.x1 - 1, (last_echar.y0 + last_echar.y1) / 2 }, false, false, false, false);
+                    int cx = (last_echar.x0 + last_echar.x1) / 2;
+                    int cy = (last_echar.y0 + last_echar.y1) / 2;
+                    handle_left_click({ cx, cy }, false, false, false, false);
                 }
                 else {
                     // Exclusive: click before the FIRST char of the end word so
