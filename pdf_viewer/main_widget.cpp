@@ -3236,7 +3236,15 @@ void MainWidget::handle_keyboard_select(const std::wstring& text) {
                     main_document_view->selected_character_rects,
                     temp_selected_text);
 
-                if (temp_selected_text.size() > 0 && temp_selected_text[temp_selected_text.size()-1] == ' ') {
+                // Sync selected_text to the word-expanded result so it matches
+                // selected_character_rects. mouse_up's earlier call used
+                // is_word_selecting (which is false when SINGLE_CLICK_SELECTS_WORDS
+                // is off -- the default), so without this assignment, the
+                // displayed selection (driven by the expanded rects) would be
+                // wider than the captured text.
+                selected_text = temp_selected_text;
+
+                if (selected_text.size() > 0 && selected_text[selected_text.size()-1] == ' ') {
                     main_document_view->selected_character_rects.pop_back();
                     selected_text.pop_back();
                 }
