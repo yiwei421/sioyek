@@ -950,7 +950,12 @@ void PdfViewOpenGLWidget::render(QPainter* painter) {
 
 		std::vector<std::string> tags = get_tags(word_rects.size());
 
-		QColor red_bg = QColor::fromRgb(255, 0, 0);
+		// drawText paints an opaque background rect around the text (set up
+		// by setup_text_painter via setBackgroundMode(Opaque) + setBackground).
+		// For the highlighted tag, swap that background brush to red so the
+		// auto-painted bg comes out red; restore for the other tags.
+		QBrush default_bg = painter->background();
+		QBrush red_bg(QColor::fromRgb(255, 0, 0));
 
 		for (size_t i = 0; i < word_rects.size(); i++) {
 			auto [rect, page] = word_rects[i];
@@ -974,19 +979,13 @@ void PdfViewOpenGLWidget::render(QPainter* painter) {
 			int baseline_y = (window_y0 + window_y1) / 2;
 
 			if (static_cast<int>(i) == highlighted_tag_index) {
-				// Fill a red rect that fully encloses the glyph cell, then
-				// draw the text on top in the default color. Use font-metrics
-				// height + horizontalAdvance with generous padding so the
-				// red box fully covers the previous default-color tag.
-				QString tag_str = QString::fromStdString(tags[i]);
-				QFontMetrics fm = painter->fontMetrics();
-				int text_w = fm.horizontalAdvance(tag_str);
-				int ascent = fm.ascent();
-				int height = fm.height();
-				QRect bg_rect(window_x0 - 3, baseline_y - ascent - 2, text_w + 6, height + 4);
-				painter->fillRect(bg_rect, red_bg);
+				painter->setBackground(red_bg);
+				painter->drawText(window_x0, baseline_y, tags[i].c_str());
+				painter->setBackground(default_bg);
 			}
-			painter->drawText(window_x0, baseline_y, tags[i].c_str());
+			else {
+				painter->drawText(window_x0, baseline_y, tags[i].c_str());
+			}
 		}
 	}
 
