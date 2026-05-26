@@ -673,6 +673,56 @@ class DeleteHighlightCommand : public Command {
 	}
 };
 
+class CopyHighlightCommand : public Command {
+	// Tag-based copy: overlays 1-letter tags on visible highlights (same
+	// pipeline as delete_highlight), type the tag, the highlight's text
+	// goes to the clipboard. No prior selection needed.
+	std::vector<int> visible_highlight_indices;
+	std::string tag;
+	int n_required_tags = 0;
+	bool already_pre_performed = false;
+
+	void pre_perform(MainWidget* widget) {
+		if (!already_pre_performed) {
+			visible_highlight_indices = widget->main_document_view->get_visible_highlight_indices();
+			n_required_tags = get_num_tag_digits(visible_highlight_indices.size());
+			widget->handle_delete_highlight_pre_perform(visible_highlight_indices);
+			already_pre_performed = true;
+		}
+	}
+
+	std::optional<Requirement> next_requirement(MainWidget* widget) {
+		pre_perform(widget);
+		if (static_cast<int>(tag.size()) < n_required_tags) {
+			return Requirement{ RequirementType::Symbol, "tag" };
+		}
+		return {};
+	}
+
+	void set_symbol_requirement(char value) {
+		tag.push_back(value);
+	}
+
+	void perform(MainWidget* widget) {
+		if (tag.size() > 0) {
+			int index = get_index_from_tag(tag);
+			if (index < static_cast<int>(visible_highlight_indices.size())) {
+				const auto& highlights = widget->doc()->get_highlights();
+				int hl_idx = visible_highlight_indices[index];
+				if (hl_idx < static_cast<int>(highlights.size())) {
+					copy_to_clipboard(highlights[hl_idx].description);
+				}
+			}
+		}
+		widget->clear_keyboard_select_highlights();
+		widget->validate_render();
+	}
+
+	std::string get_name() {
+		return "copy_highlight";
+	}
+};
+
 class GotoPortalCommand : public Command {
 	void perform(MainWidget* widget) {
 		std::optional<Portal> link = widget->main_document_view->find_closest_portal();
@@ -2338,6 +2388,7 @@ CommandManager::CommandManager(ConfigManager* config_manager) {
 	new_commands["delete_portal"] = []() {return std::make_unique< DeletePortalCommand>(); };
 	new_commands["delete_bookmark"] = []() {return std::make_unique< DeleteBookmarkCommand>(); };
 	new_commands["delete_highlight"] = []() {return std::make_unique< DeleteHighlightCommand>(); };
+	new_commands["copy_highlight"] = []() {return std::make_unique< CopyHighlightCommand>(); };
 	new_commands["goto_link"] = []() {return std::make_unique< GotoPortalCommand>(); };
 	new_commands["goto_portal"] = []() {return std::make_unique< GotoPortalCommand>(); };
 	new_commands["edit_link"] = []() {return std::make_unique< EditPortalCommand>(); };
