@@ -151,28 +151,71 @@ build_windows.bat
 ```
 
 ### Mac
-1. Install Xcode.
-2. Clone the repository and build: (The code below is in Zsh, which is the default shell on macOS.)
-```zsh
-(
-setopt PIPE_FAIL PRINT_EXIT_VALUE ERR_RETURN SOURCE_TRACE XTRACE
 
-git clone --recursive https://github.com/ahrm/sioyek
-cd sioyek
-chmod +x build_mac.sh
+`build_mac.sh` is now self-contained -- it handles submodule init, qt@5
+PATH wiring, and the macOS-specific freeglut bypass automatically.
 
-brew install 'qt@5' freeglut mesa harfbuzz
+1. Install Xcode Command Line Tools (`xcode-select --install`).
+2. Install build dependencies via Homebrew:
+   ```
+   brew install qt@5 freeglut mesa harfbuzz
+   ```
+3. Clone the repo and build (this fork lives at `yiwei421/sioyek`, branch
+   `local-build`):
+   ```
+   git clone -b local-build git@github.com:yiwei421/sioyek.git
+   cd sioyek
+   ./build_mac.sh install
+   ```
 
-export PATH="/opt/homebrew/opt/qt@5/bin:$PATH"
-#: The above is needed to make =qmake= from =qt= be found.
-#: Find the path using =brew info 'qt@5'=.
+The `install` arg means "build + drop the bundle into `/Applications`".
+Other modes:
 
-MAKE_PARALLEL=8 ./build_mac.sh
+| Command | What it does |
+| --- | --- |
+| `./build_mac.sh` | full build, produces `build/sioyek.app` and a release `.dmg` |
+| `./build_mac.sh portable` | portable build (configs read next to the binary) |
+| `./build_mac.sh nodmg` | build only, skip the DMG/zip step (faster iteration) |
+| `./build_mac.sh install` | `nodmg` then chain `./install_mac.sh` |
 
-mv build/sioyek.app /Applications/
-sudo codesign --force --sign - --deep /Applications/sioyek.app
-)
+`install_mac.sh` can also be run on its own after a build:
 ```
+./build_mac.sh nodmg
+./install_mac.sh
+```
+
+#### Iteration loop
+
+After the first successful build, the typical edit-test cycle is one command:
+
+```
+./build_mac.sh install
+```
+
+This rebuilds only what changed (mupdf is cached unless its sources move),
+re-embeds Qt frameworks via `macdeployqt`, kills any running sioyek, drops
+the Homebrew cask if installed, and copies the new bundle to
+`/Applications/sioyek.app`. Total: ~15–60 seconds for a small code change.
+
+#### Troubleshooting
+
+* **`mujs.h not found`** during mupdf build -- the recursive submodule
+  init didn't fully fetch mupdf's nested submodules. Re-run:
+  ```
+  git -C mupdf submodule update --init --recursive
+  ```
+* **`fatal: could not open ... pack/tmp_pack_*`** during `git clone` --
+  filesystem race on the ghq directory. Workaround: clone mupdf to
+  `/tmp` first, then move it in:
+  ```
+  rm -rf mupdf
+  git clone https://github.com/ArtifexSoftware/mupdf /tmp/mupdf-build
+  (cd /tmp/mupdf-build && git submodule update --init --recursive)
+  mv /tmp/mupdf-build mupdf
+  ```
+* **App crashes at launch with "cannot load cocoa platform plugin"** --
+  `macdeployqt` didn't run after `make`. Re-run `./build_mac.sh nodmg`
+  to re-deploy the bundle.
 
 ## Donation
 If you enjoy sioyek, please consider donating to support its development.
