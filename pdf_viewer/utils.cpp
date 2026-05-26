@@ -119,8 +119,12 @@ bool rects_intersect(fz_rect rect1, fz_rect rect2) {
 }
 
 ParsedUri parse_uri(fz_context* mupdf_context, std::string uri) {
-	fz_link_dest dest = pdf_parse_link_uri(mupdf_context, uri.c_str());
-	return { dest.loc.page + 1, dest.x, dest.y };
+	// pdf_parse_link_uri was removed from mupdf after 1.20.0 in favor of
+	// pdf_resolve_link_dest(ctx, doc, uri), which needs a pdf_document we don't have
+	// here. Stubbed to return a default until parse_uri is plumbed with a doc.
+	(void)mupdf_context;
+	(void)uri;
+	return { 1, 0.0f, 0.0f };
 }
 
 char get_symbol(int key, bool is_shift_pressed, const std::vector<char>& special_symbols) {
