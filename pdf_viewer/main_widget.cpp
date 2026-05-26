@@ -8,6 +8,7 @@
 #include <optional>
 #include <memory>
 #include <cctype>
+#include <limits>
 
 
 #include <qscrollarea.h>
@@ -4201,37 +4202,47 @@ void MainWidget::clear_keyboard_select_highlights() {
 }
 
 bool MainWidget::try_visual_mark_at(WindowPos pos) {
-	// Try the given position first; if it doesn't resolve to a real container
-	// line (margin / blank / page gap), sweep outward in y -- both directions
-	// alternately, increasing radius -- and snap to the nearest line found.
-	// Only returns false if the entire visible area has no resolvable line,
-	// in which case nothing happens (mode is not entered).
+	// Enumerate every text-line rect on the visible pages, pick the one whose
+	// vertical center is closest to the requested position's absolute y, then
+	// drop the mark on that line's center. This is more reliable than a pixel
+	// sweep that can land on page edges / headers, and naturally handles the
+	// page-gap case (the closest line is whichever page boundary is nearest).
+	// Only returns false if no visible page has any line at all (e.g. an
+	// image-only page), in which case nothing happens (mode is not entered).
 	if (!main_document_view_has_document()) return false;
 
-	auto resolves_to_line = [&](WindowPos p) -> bool {
-		DocumentPos dp = main_document_view->window_to_document_pos(p);
-		if (dp.page == -1) return false;
-		return main_document_view->get_line_index_of_pos(dp) != -1;
-	};
+	AbsoluteDocumentPos target_abs = main_document_view->window_to_absolute_document_pos(pos);
+	float target_abs_y = target_abs.y;
 
-	if (resolves_to_line(pos)) {
-		visual_mark_under_pos(pos);
-		return true;
-	}
+	std::vector<int> visible_pages;
+	main_document_view->get_visible_pages(main_document_view->get_view_height(), visible_pages);
 
-	int max_delta = height() / 2;
-	for (int delta = 5; delta <= max_delta; delta += 5) {
-		// Sweep downward first (typical reading direction after scrolling)
-		WindowPos below = { pos.x, pos.y + delta };
-		if (resolves_to_line(below)) {
-			visual_mark_under_pos(below);
-			return true;
-		}
-		WindowPos above = { pos.x, pos.y - delta };
-		if (resolves_to_line(above)) {
-			visual_mark_under_pos(above);
-			return true;
+	int best_page = -1;
+	fz_rect best_rect_abs = {};
+	float best_dist = std::numeric_limits<float>::max();
+
+	for (int page : visible_pages) {
+		const auto& lines = main_document_view->get_document()->get_page_lines(page, nullptr);
+		for (const auto& rect : lines) {
+			float center_y = (rect.y0 + rect.y1) / 2;
+			float dist = std::abs(center_y - target_abs_y);
+			if (dist < best_dist) {
+				best_dist = dist;
+				best_page = page;
+				best_rect_abs = rect;
+			}
 		}
 	}
-	return false;
+
+	if (best_page == -1) return false;
+
+	float center_x = (best_rect_abs.x0 + best_rect_abs.x1) / 2;
+	float center_y = (best_rect_abs.y0 + best_rect_abs.y1) / 2;
+	float norm_x = 0, norm_y = 0;
+	main_document_view->absolute_to_window_pos(center_x, center_y, &norm_x, &norm_y);
+	int wx = static_cast<int>(norm_x * width() / 2 + width() / 2);
+	int wy = static_cast<int>(-norm_y * height() / 2 + height() / 2);
+
+	visual_mark_under_pos({ wx, wy });
+	return true;
 }
