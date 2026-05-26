@@ -325,10 +325,18 @@ void PdfRenderer::run_search(int thread_index)
 
 				if (num_results > 0) {
 					req.search_results_mutex->lock();
+					// mupdf changed hit_mark semantics: it used to be 1-when-
+					// new-hit-starts, but now it's the 0-based hit index, so
+					// consecutive quads sharing a value belong to one hit.
+					// Push a new SearchResult when the index changes (or on
+					// j==0, which is always a new hit). The old check
+					// (hit_mark[j] == 1) never matched the first hit (index
+					// 0), so back() ran on an empty vector and segfaulted.
+					int last_hit = -1;
 					for (int j = 0; j < num_results; j++) {
-						if (hit_mark[j] == 1) {
-							// Hit box belongs to new entry
+						if (hit_mark[j] != last_hit) {
 							req.search_results->push_back(SearchResult{ std::vector<fz_rect>(), i });
+							last_hit = hit_mark[j];
 						}
 						req.search_results->back().rects.push_back(fz_rect_from_quad(hitboxes[j]));
 					}
