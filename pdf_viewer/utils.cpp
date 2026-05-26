@@ -118,13 +118,15 @@ bool rects_intersect(fz_rect rect1, fz_rect rect2) {
 	return range_intersects(rect1.x0, rect1.x1, rect2.x0, rect2.x1) && range_intersects(rect1.y0, rect1.y1, rect2.y0, rect2.y1);
 }
 
-ParsedUri parse_uri(fz_context* mupdf_context, std::string uri) {
-	// pdf_parse_link_uri was removed from mupdf after 1.20.0 in favor of
-	// pdf_resolve_link_dest(ctx, doc, uri), which needs a pdf_document we don't have
-	// here. Stubbed to return a default until parse_uri is plumbed with a doc.
-	(void)mupdf_context;
-	(void)uri;
-	return { 1, 0.0f, 0.0f };
+ParsedUri parse_uri(fz_context* mupdf_context, fz_document* doc, std::string uri) {
+	// pdf_parse_link_uri was removed from mupdf after 1.20.0. The replacement
+	// fz_resolve_link_dest takes the document so it can resolve named/explicit
+	// destinations. Returns 1-indexed page (callers do `page - 1` to zero-index).
+	if (!doc) {
+		return { 1, 0.0f, 0.0f };
+	}
+	fz_link_dest dest = fz_resolve_link_dest(mupdf_context, doc, uri.c_str());
+	return { dest.loc.page + 1, dest.x, dest.y };
 }
 
 char get_symbol(int key, bool is_shift_pressed, const std::vector<char>& special_symbols) {
