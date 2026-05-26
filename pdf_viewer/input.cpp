@@ -1223,7 +1223,14 @@ class KeyboardSelectCommand : public Command {
 		if (n_required_tags > 0 && static_cast<int>(tag.size()) == 2 * n_required_tags) {
 			std::string begin = tag.substr(0, n_required_tags);
 			std::string end = tag.substr(n_required_tags);
-			std::wstring combined = utf8_decode(begin + " " + end);
+			// Same tag twice = single-word selection. Route to the
+			// parts.size()==1 branch of handle_keyboard_select, which uses
+			// character rects (precise) rather than the parts.size()==2 word
+			// rect branch (which over-selects to the next word when
+			// KEYBOARD_SELECT_INCLUSIVE is on).
+			std::wstring combined = (begin == end)
+				? utf8_decode(begin)
+				: utf8_decode(begin + " " + end);
 			widget->handle_keyboard_select(combined);
 		}
 		widget->opengl_widget->set_should_highlight_words(false);
