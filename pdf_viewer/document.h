@@ -17,6 +17,7 @@
 #include <qurlquery.h>
 
 #include <mupdf/fitz.h>
+typedef struct pdf_obj pdf_obj;
 #include "sqlite3.h"
 
 #include "database.h"
@@ -96,6 +97,7 @@ private:
 
 	int get_mark_index(char symbol);
 	fz_outline* get_toc_outline();
+	void build_toc_from_pdf_outline_forward(pdf_obj* node, std::vector<TocNode*>& output);
 
 	// load marks, bookmarks, links, etc.
 	void load_document_metadata_from_db();

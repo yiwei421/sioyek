@@ -464,6 +464,61 @@ fz_outline* Document::get_toc_outline() {
 	return res;
 }
 
+// Build a TocNode tree by walking the PDF outline's forward links only
+// (/First and /Next), ignoring /Parent and /Prev. Salvage path for outlines
+// that fz_load_outline rejects -- typically produced by buggy generators that
+// leave /Parent/Prev pointing at stub objects. Preview/Adobe tolerate this by
+// walking the forward chain; we mirror that here.
+void Document::build_toc_from_pdf_outline_forward(pdf_obj* node, std::vector<TocNode*>& output) {
+	pdf_document* pdoc = pdf_specifics(context, doc);
+	if (!pdoc) return;
+
+	std::vector<int> accum_chapter_pages;
+	count_chapter_pages_accum(accum_chapter_pages);
+
+	while (node) {
+		pdf_obj* title_obj = pdf_dict_get(context, node, PDF_NAME(Title));
+		if (title_obj) {
+			// Resolve destination: prefer /Dest, fall back to /A with /GoTo + /D.
+			pdf_obj* dest = pdf_dict_get(context, node, PDF_NAME(Dest));
+			if (!dest) {
+				pdf_obj* action = pdf_dict_get(context, node, PDF_NAME(A));
+				if (action) dest = pdf_dict_get(context, action, PDF_NAME(D));
+			}
+			// Named destinations: look up in the document's /Dests / /Names tree.
+			if (dest && (pdf_is_name(context, dest) || pdf_is_string(context, dest))) {
+				dest = pdf_lookup_dest(context, pdoc, dest);
+			}
+
+			int page = -1;
+			float x = 0.0f, y = 0.0f;
+			if (dest && pdf_is_array(context, dest)) {
+				pdf_obj* page_ref = pdf_array_get(context, dest, 0);
+				if (page_ref) {
+					fz_try(context) { page = pdf_lookup_page_number(context, pdoc, page_ref); }
+					fz_catch(context) { page = -1; }
+				}
+				if (pdf_array_len(context, dest) >= 4) {
+					x = pdf_to_real(context, pdf_array_get(context, dest, 2));
+					y = pdf_to_real(context, pdf_array_get(context, dest, 3));
+				}
+			}
+
+			TocNode* current = new TocNode;
+			current->title = utf8_decode(pdf_to_text_string(context, title_obj));
+			current->page = page;
+			current->x = std::isnan(x) ? 0.0f : x;
+			current->y = std::isnan(y) ? 0.0f : y;
+
+			pdf_obj* down = pdf_dict_get(context, node, PDF_NAME(First));
+			if (down) build_toc_from_pdf_outline_forward(down, current->children);
+
+			output.push_back(current);
+		}
+		node = pdf_dict_get(context, node, PDF_NAME(Next));
+	}
+}
+
 void Document::create_toc_tree(std::vector<TocNode*>& toc) {
 	fz_try(context) {
 		fz_outline* outline = get_toc_outline();
@@ -472,7 +527,24 @@ void Document::create_toc_tree(std::vector<TocNode*>& toc) {
 			fz_drop_outline(context, outline);
 		}
 		else {
-			//create_table_of_contents(toc);
+			// fz_load_outline rejected the tree (typically due to bad
+			// /Parent or /Prev pointers from a non-conformant producer).
+			// Try the forward-only salvage walk before giving up.
+			pdf_document* pdoc = pdf_specifics(context, doc);
+			if (pdoc) {
+				pdf_obj* root = pdf_dict_get(context, pdf_trailer(context, pdoc), PDF_NAME(Root));
+				pdf_obj* outlines = pdf_dict_get(context, root, PDF_NAME(Outlines));
+				pdf_obj* first = pdf_dict_get(context, outlines, PDF_NAME(First));
+				if (first) {
+					fz_try(context) { build_toc_from_pdf_outline_forward(first, toc); }
+					fz_catch(context) {
+						// Salvage walk itself threw -- give up, leave toc empty
+						// so the auto-generated TOC fallback can take over.
+						for (auto* n : toc) delete n;
+						toc.clear();
+					}
+				}
+			}
 		}
 	}
 	fz_catch(context) {
