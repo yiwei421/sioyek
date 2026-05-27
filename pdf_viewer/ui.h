@@ -21,6 +21,7 @@
 #include <qabstractitemmodel.h>
 #include <qopenglshaderprogram.h>
 #include <qtimer.h>
+#include <qproxystyle.h>
 #include <qdatetime.h>
 #include <qstackedwidget.h>
 #include <qboxlayout.h>
@@ -99,6 +100,13 @@ protected:
 		abstract_item_view = new ViewType;
 		abstract_item_view->setModel(proxy_model);
 		abstract_item_view->setEditTriggers(QAbstractItemView::NoEditTriggers);
+
+		// macOS overlay scrollbars paint on top of viewport content, hiding
+		// the rightmost pixels of any cell. Hide the scrollbar widget in
+		// selector dialogs -- they're filter-then-arrow-keys widgets, the
+		// scrollbar isn't load-bearing; wheel / keyboard scroll still work.
+		abstract_item_view->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+		abstract_item_view->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
 		QTreeView* tree_view = dynamic_cast<QTreeView*>(abstract_item_view);
 		if (tree_view) {
