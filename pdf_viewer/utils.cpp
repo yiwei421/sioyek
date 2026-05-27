@@ -407,12 +407,30 @@ bool is_start_of_new_line(fz_stext_char* prev_char, fz_stext_char* current_char)
 	}
 	return false;
 }
+bool is_pending_word_only_delimiters(const std::vector<fz_stext_char*>& pending) {
+	for (auto c : pending) {
+		if (!is_delimeter(c->c)) return false;
+	}
+	return true;
+}
+
 bool is_start_of_new_word(fz_stext_char* prev_char, fz_stext_char* current_char) {
 	if (is_delimeter(prev_char->c)) {
 		return true;
 	}
-
-	return is_start_of_new_line(prev_char, current_char);
+	if (is_start_of_new_line(prev_char, current_char)) {
+		return true;
+	}
+	// LaTeX intersentence spacing (after `\.~`) is rendered by repositioning
+	// the next glyph at a new x without emitting a space char, so MuPDF's
+	// stext stream goes `...Graves.Generating...` with no delimiter between.
+	// Treat a wide same-line horizontal gap as an implicit word boundary so
+	// each sentence's first word can still be tagged. Threshold ~one
+	// space-width; well above normal kerning, well below typical intersentence
+	// gaps. LTR-only -- matches the assumptions of the rest of this function.
+	float gap = current_char->quad.ul.x - prev_char->quad.ur.x;
+	float threshold = get_character_height(current_char) * 0.4f;
+	return gap > threshold;
 }
 
 fz_rect create_word_rect(const std::vector<fz_rect>& chars) {
@@ -479,16 +497,28 @@ void get_flat_words_from_flat_chars(const std::vector<fz_stext_char*>& flat_char
 	std::vector<fz_stext_char*> pending_word;
 	pending_word.push_back(flat_chars[0]);
 
+	// Flush the current pending_word to the output vectors, skipping the push
+	// when the pending word contains only delimiter chars. Such whitespace-only
+	// "words" arise when a comma-delimited region is followed by a space
+	// (e.g. `0850, 2013` -- the trailing comma triggers a flush, then the
+	// following space seeds a pending of just [' ']) and would otherwise
+	// produce a phantom tag floating in the gap between real words.
+	auto flush_pending = [&]() {
+		if (pending_word.empty()) return;
+		if (is_pending_word_only_delimiters(pending_word)) return;
+		flat_word_rects.push_back(create_word_rect(pending_word));
+		if (out_char_rects != nullptr) {
+			std::vector<fz_rect> chars;
+			for (auto c : pending_word) {
+				chars.push_back(fz_rect_from_quad(c->quad));
+			}
+			out_char_rects->push_back(chars);
+		}
+	};
+
 	for (size_t i = 1; i < flat_chars.size(); i++) {
 		if (is_start_of_new_word(flat_chars[i - 1], flat_chars[i])) {
-			flat_word_rects.push_back(create_word_rect(pending_word));
-			if (out_char_rects != nullptr) {
-				std::vector<fz_rect> chars;
-				for (auto c : pending_word) {
-					chars.push_back(fz_rect_from_quad(c->quad));
-				}
-				out_char_rects->push_back(chars);
-			}
+			flush_pending();
 			if (is_start_of_new_line(flat_chars[i - 1], flat_chars[i])) {
 				fz_rect new_rect = fz_rect_from_quad(flat_chars[i - 1]->quad);
 
@@ -505,6 +535,9 @@ void get_flat_words_from_flat_chars(const std::vector<fz_stext_char*>& flat_char
 			pending_word.push_back(flat_chars[i]);
 		}
 	}
+	// Flush the trailing pending_word; without this, the last word on the
+	// page is silently dropped from the word list (and the tag system).
+	flush_pending();
 }
 
 void get_word_rect_list_from_flat_chars(const std::vector<fz_stext_char*>& flat_chars,
@@ -532,11 +565,16 @@ void get_word_rect_list_from_flat_chars(const std::vector<fz_stext_char*>& flat_
 		return res;
 	};
 
+	auto flush_pending = [&]() {
+		if (pending_word.empty()) return;
+		if (is_pending_word_only_delimiters(pending_word)) return;
+		flat_word_rects.push_back(get_rects());
+		words.push_back(get_word());
+	};
+
 	for (size_t i = 1; i < flat_chars.size(); i++) {
 		if (is_start_of_new_word(flat_chars[i - 1], flat_chars[i])) {
-			flat_word_rects.push_back(get_rects());
-			words.push_back(get_word());
-
+			flush_pending();
 			pending_word.clear();
 			pending_word.push_back(flat_chars[i]);
 		}
@@ -544,6 +582,7 @@ void get_word_rect_list_from_flat_chars(const std::vector<fz_stext_char*>& flat_
 			pending_word.push_back(flat_chars[i]);
 		}
 	}
+	flush_pending();
 }
 
 int get_num_tag_digits(int n) {
@@ -642,6 +681,18 @@ bool is_separator(fz_stext_char* last_char, fz_stext_char* current_char) {
 	}
 	float dist = abs(last_char->quad.ll.y - current_char->quad.ll.y);
 	if (dist > 1.0f) {
+		return true;
+	}
+	// Mirror the gap heuristic from is_start_of_new_word: LaTeX intersentence
+	// spacing positions glyphs without emitting a space char, so the text
+	// stream contains e.g. `Graves.Generating` with no delimiter. Without this
+	// check, keyboard_select's word-expansion path (Document::get_text_selection)
+	// keeps accumulating across the gap and the selection bleeds into the
+	// adjacent sentence on both sides. Only fires when current is on the same
+	// line and to the right of last (LTR-only, gap is negative otherwise).
+	float gap = current_char->quad.ul.x - last_char->quad.ur.x;
+	float threshold = get_character_height(current_char) * 0.4f;
+	if (gap > threshold) {
 		return true;
 	}
 	return false;

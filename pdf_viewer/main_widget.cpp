@@ -3256,11 +3256,21 @@ void MainWidget::handle_keyboard_select(const std::wstring& text) {
                 // whole token. For typical "select a phrase" use cases, the
                 // user doesn't want trailing punctuation. If they explicitly
                 // do, they can use exclusive end (KEYBOARD_SELECT_INCLUSIVE 0).
+                // Document::get_text_selection appends a synthetic ' ' to
+                // selected_text at each stext-line boundary without a matching
+                // rect, so selected_text can be longer than the rect vector.
+                // Pop the rect only when text and rects were still in sync
+                // before the pop -- otherwise we'd consume rects of real
+                // letters when stripping the synthetic trailing space,
+                // visually cutting off the last 1-2 chars of the selection.
                 while (selected_text.size() > 0) {
                     wchar_t c = selected_text.back();
                     if (c == L' ' || c == L'.' || c == L',' || c == L';' || c == L':') {
-                        main_document_view->selected_character_rects.pop_back();
+                        size_t prev_text_size = selected_text.size();
                         selected_text.pop_back();
+                        if (main_document_view->selected_character_rects.size() >= prev_text_size) {
+                            main_document_view->selected_character_rects.pop_back();
+                        }
                     }
                     else {
                         break;

@@ -1450,6 +1450,16 @@ void Document::get_text_selection(fz_context* ctx, AbsoluteDocumentPos selection
 		}
 
 
+		// Track the previous char in iteration order so is_separator can
+		// detect word boundaries against the immediate predecessor instead of
+		// against the (fixed) char_begin / char_end. The old code passed
+		// char_begin/char_end as the first arg, which meant the reset-on-
+		// separator logic only fired when current_char was itself a space or
+		// on a different line -- LaTeX intersentence gaps (no space char in
+		// the stream) silently merged adjacent sentences into one "word",
+		// causing the selection to bleed into the previous sentence on the
+		// begin side and the next sentence on the end side.
+		fz_stext_char* prev_iter_char = nullptr;
 		for (auto current_char : flat_chars) {
 			if (!is_word_selection) {
 				if (current_char == char_begin) {
@@ -1460,10 +1470,19 @@ void Document::get_text_selection(fz_context* ctx, AbsoluteDocumentPos selection
 				//}
 			}
 			else {
-				if (word_selecting == false && is_separator(char_begin, current_char)) {
+				if (word_selecting == false && is_separator(prev_iter_char, current_char)) {
+					// Crossed a word boundary -- reset accumulation. If
+					// current_char is itself a delimiter (space), skip it;
+					// otherwise it's the first char of a new word (line break
+					// or LaTeX-gap case where char_begin sits right after the
+					// gap), so fall through and let the char_begin check
+					// below promote us into word_selecting.
 					selected_text.clear();
 					selected_characters.clear();
-					continue;
+					if (current_char->c == ' ') {
+						prev_iter_char = current_char;
+						continue;
+					}
 				}
 				if (current_char == char_begin) {
 					word_selecting = true;
@@ -1471,7 +1490,7 @@ void Document::get_text_selection(fz_context* ctx, AbsoluteDocumentPos selection
 				if (current_char == char_end) {
 					selecting = false;
 				}
-				if (word_selecting == true && is_separator(char_end, current_char) && selecting == false) {
+				if (word_selecting == true && is_separator(prev_iter_char, current_char) && selecting == false) {
 					word_selecting = false;
 					return;
 				}
@@ -1499,6 +1518,7 @@ void Document::get_text_selection(fz_context* ctx, AbsoluteDocumentPos selection
 					selecting = false;
 				}
 			}
+			prev_iter_char = current_char;
 		}
 	}
 }
